@@ -497,7 +497,6 @@ func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, erro
 		if err != nil {
 			return nil, err
 		}
-
 		if err := s.SetSendTimeout(&SocketTimeoutTv); err != nil {
 			return nil, err
 		}

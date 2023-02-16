@@ -41,7 +41,6 @@ func (s Scope) String() string {
 	}
 }
 
-
 const (
 	FLAG_ONLINK    NextHopFlag = unix.RTNH_F_ONLINK
 	FLAG_PERVASIVE NextHopFlag = unix.RTNH_F_PERVASIVE
@@ -401,7 +400,7 @@ func (e *SEG6LocalEncap) String() string {
 	}
 	if e.Flags[nl.SEG6_LOCAL_SRH] {
 		segs := make([]string, 0, len(e.Segments))
-		//append segment backwards (from n to 0) since seg#0 is the last segment.
+		// append segment backwards (from n to 0) since seg#0 is the last segment.
 		for i := len(e.Segments); i > 0; i-- {
 			segs = append(segs, e.Segments[i-1].String())
 		}
@@ -1017,6 +1016,40 @@ func (h *Handle) RouteListFiltered(family int, filter *Route, filterMask uint64)
 	rtmsg.Family = uint8(family)
 	req.AddData(rtmsg)
 
+	if h.strictCheckEnabled {
+		// Kernel-side filtering requires "strict" mode to be enabled.
+		if filterMask&RT_FILTER_SCOPE != 0 {
+			rtmsg.Scope = uint8(filter.Scope)
+		} else {
+			rtmsg.Scope = 0
+		}
+		if filterMask&RT_FILTER_PROTOCOL != 0 {
+			rtmsg.Protocol = uint8(filter.Protocol)
+		} else {
+			rtmsg.Protocol = unix.RTPROT_UNSPEC
+		}
+		if filterMask&RT_FILTER_TYPE != 0 {
+			rtmsg.Type = uint8(filter.Type)
+		} else {
+			rtmsg.Type = unix.RTPROT_UNSPEC
+		}
+		if filterMask&RT_FILTER_TABLE != 0 {
+			b := make([]byte, 4)
+			native.PutUint32(b, uint32(filter.Table))
+			req.AddData(nl.NewRtAttr(unix.RTA_TABLE, b))
+		} else {
+			// Get main table by default.
+			rtmsg.Table = unix.RT_TABLE_MAIN
+		}
+		// Filter by interface.  LinkIndex 0 is used for non-device routes (such as blackhole routes)
+		// but kernel-side filtering doesn't support filtering on that.
+		if filterMask&RT_FILTER_OIF != 0 && filter.LinkIndex != 0 {
+			b := make([]byte, 4)
+			native.PutUint32(b, uint32(filter.LinkIndex))
+			req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
+		}
+	}
+
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWROUTE)
 	if err != nil {
 		return nil, err
@@ -1523,7 +1556,7 @@ func (p RouteProtocol) String() string {
 		return "gated"
 	case unix.RTPROT_ISIS:
 		return "isis"
-	//case unix.RTPROT_KEEPALIVED:
+	// case unix.RTPROT_KEEPALIVED:
 	//	return "keepalived"
 	case unix.RTPROT_KERNEL:
 		return "kernel"
