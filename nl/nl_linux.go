@@ -533,14 +533,14 @@ func (req *NetlinkRequest) ExecuteIter(sockType int, resType uint16, f func(msg 
 		}
 
 		if err := s.SetSendTimeout(&SocketTimeoutTv); err != nil {
-			return err
+			return fmt.Errorf("failed to SetSendTimeout: %w", err)
 		}
 		if err := s.SetReceiveTimeout(&SocketTimeoutTv); err != nil {
-			return err
+			return fmt.Errorf("failed to SetReceiveTimeout: %w", err)
 		}
 		if EnableErrorMessageReporting {
 			if err := s.SetExtAck(true); err != nil {
-				return err
+				return fmt.Errorf("failed to SetExtAck: %w", err)
 			}
 		}
 
@@ -551,19 +551,19 @@ func (req *NetlinkRequest) ExecuteIter(sockType int, resType uint16, f func(msg 
 	}
 
 	if err := s.Send(req); err != nil {
-		return err
+		return fmt.Errorf("failed to Send: %w", err)
 	}
 
 	pid, err := s.GetPid()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to GetPid: %w", err)
 	}
 
 done:
 	for {
 		msgs, from, err := s.Receive()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to Receive: %w", err)
 		}
 		if from.Pid != PidKernel {
 			return fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, PidKernel)
@@ -665,11 +665,11 @@ type NetlinkSocket struct {
 func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, protocol)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unix.Socket: %w", err)
 	}
 	err = unix.SetNonblock(fd, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to SetNonblock: %w", err)
 	}
 	s := &NetlinkSocket{
 		fd:   int32(fd),
@@ -678,7 +678,7 @@ func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 	s.lsa.Family = unix.AF_NETLINK
 	if err := unix.Bind(fd, &s.lsa); err != nil {
 		unix.Close(fd)
-		return nil, err
+		return nil, fmt.Errorf("failed to unix.Bind: %w", err)
 	}
 
 	return s, nil
