@@ -596,9 +596,9 @@ done:
 				}
 				var err error
 				err = syscall.Errno(-errno)
-				if err == unix.EBUSY {
-					err = fmt.Errorf("failed to execute request (NLMSG_DONE): %w", err)
-				}
+				// if err == unix.EBUSY {
+				// 	err = fmt.Errorf("failed to execute request (NLMSG_DONE): %w", err)
+				// }
 
 				unreadData := m.Data[4:]
 				if m.Header.Flags&unix.NLM_F_ACK_TLVS != 0 && len(unreadData) > syscall.SizeofNlMsghdr {
